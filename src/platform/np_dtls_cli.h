@@ -59,6 +59,8 @@ struct np_dtls_cli_module {
     np_error_code (*set_keys)(struct np_dtls_cli_context* ctx,
                               const unsigned char* publicKeyL, size_t publicKeySize,
                               const unsigned char* privateKeyL, size_t privateKeySize);
+    np_error_code (*set_root_cert)(struct np_dtls_cli_context* ctx,
+                                   const unsigned char* rootCertL, size_t rootCertSize);
     np_error_code (*reset)(struct np_dtls_cli_context* ctx);
     np_error_code (*connect)(struct np_dtls_cli_context* ctx);
     np_error_code (*async_send_data)(struct np_dtls_cli_context* ctx,

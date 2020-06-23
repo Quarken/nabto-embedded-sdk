@@ -4,6 +4,7 @@
 #include <boost/asio/io_service.hpp>
 //#include <util/test_future.hpp>
 #include <fixtures/dtls_server/mbedtls_util.hpp>
+#
 
 #include <nlohmann/json.hpp>
 
@@ -11,58 +12,6 @@
 
 namespace nabto {
 namespace test {
-
-std::string certChain = R"(
------BEGIN CERTIFICATE-----
-MIICMzCCAdqgAwIBAgIURu94ep36BTXqJOcOq6L142ReZtEwCgYIKoZIzj0EAwIw
-PjELMAkGA1UEBhMCREsxDjAMBgNVBAoMBU5hYnRvMR8wHQYDVQQDDBZOYWJ0byBU
-ZXN0IFNlcnZlciBDQSAxMB4XDTIwMDYyMzEyMDQ0MFoXDTIxMDcwMzEyMDQ0MFow
-OzELMAkGA1UEBhMCREsxDjAMBgNVBAoMBU5hYnRvMRwwGgYDVQQDDBNsb2NhbGhv
-c3QubmFidG8ubmV0MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhIa2qC2rPyvh
-NhPKKi+E6ygXF9OB80Vdcl6uRoRZnTAxaZaPs/cEkNwOg7Rh6AbztudvwepnTNm5
-UdYfDMquUKOBuDCBtTAJBgNVHRMEAjAAMB0GA1UdDgQWBBTJfqidoIXeMhLJKQRs
-gCKqwDUtPDAfBgNVHSMEGDAWgBRvrsA1Am7NlGBuynzd4DICRsbTCDAOBgNVHQ8B
-Af8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwEwQwYIKwYBBQUHAQEENzA1MDMG
-CCsGAQUFBzABhidodHRwOi8vb2NzcC5zZXJ2ZXJjYTEucGtpLmRldi5uYWJ0by5j
-b20wCgYIKoZIzj0EAwIDRwAwRAIgciIubkkxWCL7PkCWRep98lowxqKzB/4LoJ4Z
-LYg9coUCIBJPNm8JqXoGPXVgfz5/0ysq2M6gesSUyYM5M8xzilsD
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-MIICKDCCAc2gAwIBAgIUGG+y7EGtGfMSDKi2ZVpsZeAfFWAwCgYIKoZIzj0EAwIw
-PDELMAkGA1UEBhMCREsxDjAMBgNVBAoMBU5hYnRvMR0wGwYDVQQDDBROYWJ0byBU
-ZXN0IFJvb3QgQ0EgMTAeFw0yMDA2MjIxMTMxMDVaFw0zMDA2MjAxMTMxMDVaMD4x
-CzAJBgNVBAYTAkRLMQ4wDAYDVQQKDAVOYWJ0bzEfMB0GA1UEAwwWTmFidG8gVGVz
-dCBTZXJ2ZXIgQ0EgMTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABDfMT+dnMwrs
-z44+yczSzgMeUQqzSj6msA0AosN3DZP4U6BEUJOk2ZSqF9FXrhx+9eHRNfGLcEpp
-/eNW7eOmfwKjgaowgacwHQYDVR0OBBYEFG+uwDUCbs2UYG7KfN3gMgJGxtMIMB8G
-A1UdIwQYMBaAFG/mZCUc2tUvj6DZOwuxkqDNcwqJMBIGA1UdEwEB/wQIMAYBAf8C
-AQAwDgYDVR0PAQH/BAQDAgGGMEEGCCsGAQUFBwEBBDUwMzAxBggrBgEFBQcwAYYl
-aHR0cDovL29jc3Aucm9vdGNhMS5wa2kuZGV2Lm5hYnRvLmNvbTAKBggqhkjOPQQD
-AgNJADBGAiEA+J+HaYOSdhWZ5MLoHtybZkAswr6QzDmc7U5VFY50g5sCIQCSp3vd
-8GeuhkjSERuP3hU7nUkmb3nJ8Gxa+XmkPmRpkw==
------END CERTIFICATE-----
-)";
-
-std::string rootCert = R"(-----BEGIN CERTIFICATE-----
-MIIBvDCCAWKgAwIBAgIUG+Bt71g3QqS36/jNxVcmQLzoZkwwCgYIKoZIzj0EAwIw
-PDELMAkGA1UEBhMCREsxDjAMBgNVBAoMBU5hYnRvMR0wGwYDVQQDDBROYWJ0byBU
-ZXN0IFJvb3QgQ0EgMTAeFw0yMDA2MjIwOTA4MzhaFw00OTEyMzEyMzU5NTlaMDwx
-CzAJBgNVBAYTAkRLMQ4wDAYDVQQKDAVOYWJ0bzEdMBsGA1UEAwwUTmFidG8gVGVz
-dCBSb290IENBIDEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASxCXWqC54B+HCe
-FkdxlfHhtqXpvc6P0A8km3ii1savQJmrbdgnu263AQxuf9rSvC3pO6UC81zNIFli
-cdkErvnpo0IwQDAdBgNVHQ4EFgQUb+ZkJRza1S+PoNk7C7GSoM1zCokwDwYDVR0T
-AQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwCgYIKoZIzj0EAwIDSAAwRQIgG2tw
-se2/BxmDOs20B120QoGerlYgmfQlGnQtEdeyPsACIQC19A9QR/l/pO9ftOYWrrHL
-mdCg5Sam+dxRWc3+vGMCSA==
------END CERTIFICATE-----
-)";
-
-std::string privateKey = R"(-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9b2pAZawStfrB+77
-HAGga0ktbJ6kqjN5ISiF4Rjh0fChRANCAASEhraoLas/K+E2E8oqL4TrKBcX04Hz
-RV1yXq5GhFmdMDFplo+z9wSQ3A6DtGHoBvO252/B6mdM2blR1h8Myq5Q
------END PRIVATE KEY-----
-)";
 
 class AttachCoapServer {
  public:
@@ -76,13 +25,13 @@ class AttachCoapServer {
         lib::error_code ec;
         dtlsServer_.setPort(0);
         dtlsServer_.setAlpnProtocols({"n5"});
-        if (!dtlsServer_.setRootCert(rootCert)) {
+        if (!dtlsServer_.setRootCert(caRootCert)) {
             return false;
         }
-        if (!dtlsServer_.setCertChain(certChain)) {
+        if (!dtlsServer_.setCertChain(localhostNabtoNetCertChain)) {
             return false;
         }
-        if (!dtlsServer_.setPrivateKey(privateKey)) {
+        if (!dtlsServer_.setPrivateKey(localhostNabtoNetPrivateKey)) {
             return false;
         }
 

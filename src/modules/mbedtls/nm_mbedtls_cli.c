@@ -24,7 +24,7 @@
 #include <nn/llist.h>
 
 #define LOG NABTO_LOG_MODULE_DTLS_CLI
-#define DEBUG_LEVEL 0
+#define DEBUG_LEVEL 4
 
 const int allowedCipherSuitesList[] = { MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM, 0 };
 
@@ -74,6 +74,9 @@ static np_error_code nm_mbedtls_cli_set_sni(struct np_dtls_cli_context* ctx, con
 static np_error_code nm_mbedtls_cli_set_keys(struct np_dtls_cli_context* ctx,
                                           const unsigned char* publicKeyL, size_t publicKeySize,
                                           const unsigned char* privateKeyL, size_t privateKeySize);
+
+static np_error_code nm_mbedtls_cli_set_root_cert(struct np_dtls_cli_context* ctx,
+                                                  const unsigned char* rootCertL, size_t rootCertSize);
 
 static np_error_code async_send_data(struct np_dtls_cli_context* ctx,
                                      struct np_dtls_cli_send_context* sendCtx);
@@ -157,6 +160,7 @@ np_error_code nm_mbedtls_cli_init(struct np_platform* pl)
     pl->dtlsC.destroy = &nm_mbedtls_cli_destroy;
     pl->dtlsC.set_sni = &nm_mbedtls_cli_set_sni;
     pl->dtlsC.set_keys = &nm_mbedtls_cli_set_keys;
+    pl->dtlsC.set_root_cert = &nm_mbedtls_cli_set_root_cert;
     pl->dtlsC.connect = &nm_dtls_connect;
     pl->dtlsC.reset = &nm_mbedtls_cli_reset;
     pl->dtlsC.async_send_data = &async_send_data;
@@ -367,21 +371,26 @@ np_error_code nm_mbedtls_cli_set_keys(struct np_dtls_cli_context* ctx,
         return NABTO_EC_UNKNOWN;
     }
 
-    ret = mbedtls_x509_crt_parse( &ctx->rootCert, (const unsigned char*)nm_dtls_root_ca, strlen(nm_dtls_root_ca)+1);
-    if( ret != 0 ) {
-        NABTO_LOG_INFO(LOG,  " failed  ! mbedtls_x509_crt_parse returned %d", ret );
-        return NABTO_EC_UNKNOWN;
-    }
-
-    mbedtls_ssl_conf_ca_chain(&ctx->conf, &ctx->rootCert, NULL);
-
-
     ret = mbedtls_ssl_conf_own_cert(&ctx->conf, &ctx->publicKey, &ctx->privateKey);
     if (ret != 0) {
         NABTO_LOG_INFO(LOG,  " failed  ! mbedtls_ssl_conf_own_cert returned %d", ret );
         return NABTO_EC_UNKNOWN;
     }
 
+    return NABTO_EC_OK;
+}
+
+static np_error_code nm_mbedtls_cli_set_root_cert(struct np_dtls_cli_context* ctx,
+                                                  const unsigned char* rootCertL, size_t rootCertSize)
+{
+    int ret;
+    ret = mbedtls_x509_crt_parse( &ctx->rootCert, rootCertL, rootCertSize+1);
+    if( ret != 0 ) {
+        NABTO_LOG_INFO(LOG,  " failed  ! mbedtls_x509_crt_parse returned %d", ret );
+        return NABTO_EC_UNKNOWN;
+    }
+
+    mbedtls_ssl_conf_ca_chain(&ctx->conf, &ctx->rootCert, NULL);
     return NABTO_EC_OK;
 }
 

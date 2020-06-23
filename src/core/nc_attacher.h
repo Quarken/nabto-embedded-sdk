@@ -172,6 +172,10 @@ np_error_code nc_attacher_set_keys(struct nc_attach_context* ctx,
                                    const unsigned char* publicKeyL, size_t publicKeySize,
                                    const unsigned char* privateKeyL, size_t privateKeySize);
 
+np_error_code nc_attacher_set_root_cert(struct nc_attach_context* ctx,
+                                        const unsigned char* rootCert, size_t rootCertSize);
+
+
 // set app info before start
 np_error_code nc_attacher_set_app_info(struct nc_attach_context* ctx,
                                        const char* appName,

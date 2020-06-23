@@ -175,6 +175,14 @@ np_error_code nc_attacher_set_keys(struct nc_attach_context* ctx, const unsigned
     return ctx->pl->dtlsC.set_keys(ctx->dtls, publicKeyL, publicKeySize, privateKeyL, privateKeySize);
 }
 
+np_error_code nc_attacher_set_root_cert(struct nc_attach_context* ctx, const unsigned char* rootCertL, size_t rootCertSize)
+{
+    if (ctx->moduleState != NC_ATTACHER_MODULE_SETUP) {
+        return NABTO_EC_INVALID_STATE;
+    }
+    return ctx->pl->dtlsC.set_root_cert(ctx->dtls, rootCertL, rootCertSize);
+}
+
 np_error_code nc_attacher_set_app_info(struct nc_attach_context* ctx, const char* appName, const char* appVersion)
 {
     if (ctx->moduleState != NC_ATTACHER_MODULE_SETUP) {

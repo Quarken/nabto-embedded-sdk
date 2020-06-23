@@ -30,6 +30,4 @@ np_error_code nm_dtls_get_fingerprint_from_private_key(const char* privateKey, u
 
 np_error_code nm_dtls_util_create_private_key(char** privateKey);
 
-extern const char* nm_dtls_root_ca;
-
 #endif //NM_MBEDTLS_UTIL_H
