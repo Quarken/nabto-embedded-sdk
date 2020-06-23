@@ -150,10 +150,16 @@ DtlsServerImpl::DtlsServerImpl(boost::asio::io_context& ioContext)
     mbedtls_ssl_cookie_init( &cookie_ctx );
     mbedtls_entropy_init( &entropy );
     mbedtls_ctr_drbg_init( &ctr_drbg );
+    mbedtls_x509_crt_init( &certChain_ );
+    mbedtls_x509_crt_init( &rootCert_ );
+    mbedtls_pk_init( &privateKey_ );
 }
 
 DtlsServerImpl::~DtlsServerImpl()
 {
+    mbedtls_x509_crt_free( &rootCert_ );
+    mbedtls_x509_crt_free( &certChain_ );
+    mbedtls_pk_free( &privateKey_ );
     mbedtls_ctr_drbg_free( &ctr_drbg );
     mbedtls_entropy_free( &entropy );
     mbedtls_ssl_cookie_free( &cookie_ctx );
@@ -200,22 +206,58 @@ lib::error_code DtlsServerImpl::initConfig()
     mbedtls_ssl_conf_dtls_cookies( &conf_, mbedtls_ssl_cookie_write, mbedtls_ssl_cookie_check,
                                    &cookie_ctx );
 
-    mbedtls_ssl_conf_sni(&conf_, &DtlsServerImpl::mbedSni, this);
-
     if (alpnProtocols_) {
         mbedtls_ssl_conf_alpn_protocols(&conf_, alpnProtocols_->getProtocols() );
     }
+
+    if( ( ret = mbedtls_ssl_conf_own_cert( &conf_, &certChain_, &privateKey_ ) ) != 0 )
+    {
+        printf("mbedtls_ssl_conf_own_cert returned %d\n", ret);
+        return make_error_code(DtlsError::invalid_state);
+    }
+
     mbedtls_ssl_conf_handshake_timeout( &conf_, minHandshakeTimeout_, maxHandshakeTimeout_);
     return make_error_code(DtlsError::ok);
 }
 
+bool DtlsServerImpl::setRootCert(const std::string& rootCert)
+{
+    int ret;
+    ret = mbedtls_x509_crt_parse( &rootCert_, (const unsigned char*)rootCert.data(), rootCert.size()+1);
+    if( ret != 0 )
+    {
+        printf("mbedtls_x509_crt_parse returned %d\n", ret);
+        return false;
+    }
+    return true;
+}
+
+bool DtlsServerImpl::setCertChain(const std::string& certChain)
+{
+    int ret;
+    ret = mbedtls_x509_crt_parse( &certChain_, (const unsigned char*)certChain.data(), certChain.size()+1);
+    if( ret != 0 )
+    {
+        printf("mbedtls_x509_crt_parse returned %d \n", ret);
+        return false;
+    }
+    return true;
+}
+
+bool DtlsServerImpl::setPrivateKey(const std::string& privateKey)
+{
+    int ret;
+    ret =  mbedtls_pk_parse_key( &privateKey_, (const unsigned char*)privateKey.data(), privateKey.size()+1, NULL, 0 );
+    if( ret != 0 )
+    {
+        printf("mbedtls_pk_parse_key returned %d\n", ret);
+        return false;
+    }
+    return true;
+}
 
 lib::error_code DtlsServerImpl::init()
 {
-    if (!sniCallback_) {
-        return make_error_code(DtlsError::missing_sni_callback);
-    }
-
     boost::system::error_code ec;
     udpServer_.open(port_, ec);
     if (ec) {
@@ -224,39 +266,6 @@ lib::error_code DtlsServerImpl::init()
     initConfig();
     startReceive();
     return make_error_code(DtlsError::ok);
-}
-
-int DtlsServerImpl::mbedSni(void* server, mbedtls_ssl_context* ssl, const unsigned char* sni, size_t sniLength)
-{
-    auto dtlsServer = reinterpret_cast<DtlsServerImpl*>(server);
-
-    std::string sniName(reinterpret_cast<const char*>(sni), sniLength);
-
-    if (!dtlsServer->sniCallback_) {
-        return 0;
-    }
-
-    std::shared_ptr<CertificateContext> ctx = dtlsServer->sniCallback_(sniName);
-    std::shared_ptr<DtlsConnectionImpl> connection = dtlsServer->getConnection(ssl);
-
-    if (!ctx) {
-        return -1;
-    }
-
-    if (!connection) {
-        return -1;
-    }
-
-    connection->certificateContext_ = ctx;
-
-    mbedtls_ssl_set_hs_authmode( ssl, ctx->authMode );
-
-    int ret = mbedtls_ssl_set_hs_own_cert( ssl, &ctx->publicKey_, &ctx->privateKey_ );
-    if (ret != 0) {
-        return ret;
-    }
-
-    return 0;
 }
 
 std::shared_ptr<DtlsConnectionImpl> DtlsServerImpl::getConnection(const mbedtls_ssl_context* ssl)
@@ -425,6 +434,8 @@ bool DtlsConnectionImpl::init(const boost::asio::ip::udp::endpoint& ep)
                               });
 
     mbedtls_ssl_session_reset( &ssl_ );
+
+    mbedtls_ssl_set_mtu(&ssl_, 1280);
 
     if( ( ret = mbedtls_ssl_set_client_transport_id( &ssl_,
                                                      reinterpret_cast<const unsigned char*>(ep.data()), ep.size() ) ) != 0 )

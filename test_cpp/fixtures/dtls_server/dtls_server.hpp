@@ -81,10 +81,9 @@ class DtlsServer {
 
     static std::shared_ptr<CertificateContext> createCertificateContext(const std::string& privateKey, const std::string& publicKey);
 
-    typedef std::function<CertificateContextPtr (const std::string& sni)> SniCallback;
-
-    // Called each time a connection is made.
-    void setSniCallback(SniCallback cb);
+    bool setRootCert(const std::string& rootChert);
+    bool setCertChain(const std::string& certChain);
+    bool setPrivateKey(const std::string& privateKey);
 
     void setAlpnProtocols(std::vector<std::string> alpnProtocols);
 

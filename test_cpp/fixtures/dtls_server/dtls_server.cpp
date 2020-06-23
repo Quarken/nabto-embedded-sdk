@@ -54,10 +54,17 @@ void DtlsServer::setAlpnProtocols(std::vector<std::string> alpnProtocols)
 {
     impl_->setAlpnProtocols(alpnProtocols);
 }
-
-void DtlsServer::setSniCallback(SniCallback sniCallback)
+bool DtlsServer::setRootCert(const std::string& rootCert)
 {
-    impl_->setSniCallback(sniCallback);
+    return impl_->setRootCert(rootCert);
+}
+bool DtlsServer::setCertChain(const std::string& certChain)
+{
+    return impl_->setCertChain(certChain);
+}
+bool DtlsServer::setPrivateKey(const std::string& privateKey)
+{
+    return impl_->setPrivateKey(privateKey);
 }
 
 void DtlsServer::addResourceHandler(nabto_coap_code method, const std::string& path, std::function<void (DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)> handler)

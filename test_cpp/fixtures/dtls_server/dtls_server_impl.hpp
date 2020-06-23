@@ -191,8 +191,6 @@ class DtlsServerImpl : public std::enable_shared_from_this<DtlsServerImpl> {
     DtlsServerImpl(boost::asio::io_context& ioContext);
     ~DtlsServerImpl();
 
-    typedef std::function<void (const std::string& sni)> sniCb;
-
     lib::error_code init();
 
     lib::error_code initConfig();
@@ -206,8 +204,9 @@ class DtlsServerImpl : public std::enable_shared_from_this<DtlsServerImpl> {
         alpnProtocols_ = std::make_unique<AlpnProtocols>(alpns);
     }
 
-
-    void setSniCallback(DtlsServer::SniCallback sniCallback) { sniCallback_ = sniCallback; }
+    bool setRootCert(const std::string& rootChert);
+    bool setCertChain(const std::string& certChain);
+    bool setPrivateKey(const std::string& privateKey);
 
     void setKeepAliveSettings(KeepAliveSettings keepAliveSettings) { keepAliveSettings_ = keepAliveSettings; }
     void setHandshakeTimeout(uint32_t min, uint32_t max) { minHandshakeTimeout_ = min; maxHandshakeTimeout_ = max; }
@@ -219,12 +218,9 @@ class DtlsServerImpl : public std::enable_shared_from_this<DtlsServerImpl> {
 
     void connectionEnteredDataPhase(DtlsConnectionImplPtr connection);
 
-    static int mbedSni(void* server, mbedtls_ssl_context* ctx, const unsigned char* sni, size_t sniLength);
-
     mbedtls_ssl_config conf_;
     std::unique_ptr<AlpnProtocols> alpnProtocols_;
 
-    std::shared_ptr<CertificateContext> getSniConfig(const std::string& sni);
     DtlsConnectionImplPtr getConnection(const mbedtls_ssl_context* ssl);
 
     void addResourceHandler(nabto_coap_code method, const std::string& path, std::function<void (DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)> handler);
@@ -314,8 +310,6 @@ class DtlsServerImpl : public std::enable_shared_from_this<DtlsServerImpl> {
     std::map<boost::asio::ip::udp::endpoint, DtlsConnectionImplPtr> dataConnectionMap_;
     std::map<const mbedtls_ssl_context*, DtlsConnectionImplPtr> connectionMapSslCtx_;
 
-    DtlsServer::SniCallback sniCallback_;
-
     mbedtls_ssl_cookie_ctx cookie_ctx;
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
@@ -331,6 +325,11 @@ class DtlsServerImpl : public std::enable_shared_from_this<DtlsServerImpl> {
     std::function<void (DtlsConnectionPtr connection)> connectionClosedHandler_;
 
     bool stopped_ = false;
+
+    mbedtls_x509_crt rootCert_;
+    mbedtls_x509_crt certChain_;
+    mbedtls_pk_context privateKey_;
+
  public:
     KeepAliveSettings keepAliveSettings_;
     uint32_t minHandshakeTimeout_ = 1000;

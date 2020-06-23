@@ -193,3 +193,18 @@ np_error_code nm_dtls_util_create_private_key(char** privateKey)
 
     return ec;
 }
+
+
+const char* nm_dtls_root_ca =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIBvDCCAWKgAwIBAgIUG+Bt71g3QqS36/jNxVcmQLzoZkwwCgYIKoZIzj0EAwIw\n"
+    "PDELMAkGA1UEBhMCREsxDjAMBgNVBAoMBU5hYnRvMR0wGwYDVQQDDBROYWJ0byBU\n"
+    "ZXN0IFJvb3QgQ0EgMTAeFw0yMDA2MjIwOTA4MzhaFw00OTEyMzEyMzU5NTlaMDwx\n"
+    "CzAJBgNVBAYTAkRLMQ4wDAYDVQQKDAVOYWJ0bzEdMBsGA1UEAwwUTmFidG8gVGVz\n"
+    "dCBSb290IENBIDEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASxCXWqC54B+HCe\n"
+    "FkdxlfHhtqXpvc6P0A8km3ii1savQJmrbdgnu263AQxuf9rSvC3pO6UC81zNIFli\n"
+    "cdkErvnpo0IwQDAdBgNVHQ4EFgQUb+ZkJRza1S+PoNk7C7GSoM1zCokwDwYDVR0T\n"
+    "AQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwCgYIKoZIzj0EAwIDSAAwRQIgG2tw\n"
+    "se2/BxmDOs20B120QoGerlYgmfQlGnQtEdeyPsACIQC19A9QR/l/pO9ftOYWrrHL\n"
+    "mdCg5Sam+dxRWc3+vGMCSA==\n"
+    "-----END CERTIFICATE-----";

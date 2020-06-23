@@ -58,9 +58,9 @@ struct np_dtls_cli_context {
     mbedtls_ctr_drbg_context ctr_drbg;
     mbedtls_ssl_config conf;
     mbedtls_x509_crt publicKey;
+    mbedtls_x509_crt rootCert;
     mbedtls_pk_context privateKey;
     mbedtls_ssl_context ssl;
-
 };
 
 const char* nm_mbedtls_cli_alpnList[] = {NABTO_PROTOCOL_VERSION , NULL};
@@ -185,6 +185,7 @@ np_error_code nm_mbedtls_cli_create(struct np_platform* pl, struct np_dtls_cli_c
     mbedtls_ctr_drbg_init( &ctx->ctr_drbg );
     mbedtls_entropy_init( &ctx->entropy );
     mbedtls_x509_crt_init( &ctx->publicKey );
+    mbedtls_x509_crt_init( &ctx->rootCert );
     mbedtls_pk_init( &ctx->privateKey );
 
     ctx->sender = packetSender;
@@ -258,7 +259,7 @@ np_error_code dtls_cli_init_connection(struct np_dtls_cli_context* ctx)
                                   allowedCipherSuitesList);
 
     mbedtls_ssl_conf_alpn_protocols(&ctx->conf, nm_mbedtls_cli_alpnList );
-    mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_OPTIONAL );
+    mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_REQUIRED );
 
     mbedtls_ssl_conf_rng( &ctx->conf, mbedtls_ctr_drbg_random, &ctx->ctr_drbg );
 #if defined(MBEDTLS_DEBUG_C)
@@ -318,6 +319,7 @@ void nm_mbedtls_cli_do_free(struct np_dtls_cli_context* ctx)
 
     mbedtls_pk_free(&ctx->privateKey);
     mbedtls_x509_crt_free(&ctx->publicKey );
+    mbedtls_x509_crt_free(&ctx->rootCert);
     mbedtls_entropy_free( &ctx->entropy );
     mbedtls_ctr_drbg_free( &ctx->ctr_drbg );
     mbedtls_ssl_config_free( &ctx->conf );
@@ -364,6 +366,15 @@ np_error_code nm_mbedtls_cli_set_keys(struct np_dtls_cli_context* ctx,
         NABTO_LOG_INFO(LOG,  " failed  ! mbedtls_pk_parse_key returned %d", ret );
         return NABTO_EC_UNKNOWN;
     }
+
+    ret = mbedtls_x509_crt_parse( &ctx->rootCert, (const unsigned char*)nm_dtls_root_ca, strlen(nm_dtls_root_ca)+1);
+    if( ret != 0 ) {
+        NABTO_LOG_INFO(LOG,  " failed  ! mbedtls_x509_crt_parse returned %d", ret );
+        return NABTO_EC_UNKNOWN;
+    }
+
+    mbedtls_ssl_conf_ca_chain(&ctx->conf, &ctx->rootCert, NULL);
+
 
     ret = mbedtls_ssl_conf_own_cert(&ctx->conf, &ctx->publicKey, &ctx->privateKey);
     if (ret != 0) {
@@ -428,6 +439,14 @@ void nm_dtls_event_do_one(void* data)
         } else {
             if( ret != 0 )
             {
+                if (ret == -0x2700) {
+                    uint32_t res = mbedtls_ssl_get_verify_result(&ctx->ssl);
+                    if (res & MBEDTLS_X509_BADCERT_CN_MISMATCH) {
+                        NABTO_LOG_ERROR(LOG, "certificate common name mismatch");
+                    } else {
+                        NABTO_LOG_ERROR(LOG, "handshake failed %d", res);
+                    }
+                }
                 NABTO_LOG_INFO(LOG,  " failed  ! mbedtls_ssl_handshake returned -0x%04x", -ret );
                 ctx->state = CLOSING;
                 nm_mbedtls_timer_cancel(&ctx->timer);
