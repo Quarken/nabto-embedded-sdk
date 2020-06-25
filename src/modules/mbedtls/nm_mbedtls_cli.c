@@ -298,7 +298,9 @@ np_error_code dtls_cli_init_connection(struct np_dtls_cli_context* ctx)
                                   allowedCipherSuitesList);
 
     mbedtls_ssl_conf_alpn_protocols(&ctx->conf, nm_mbedtls_cli_alpnList );
-    mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_REQUIRED );
+
+    // Check the certificate chain afterwards with is_certificates_ok
+    mbedtls_ssl_conf_authmode( &ctx->conf, MBEDTLS_SSL_VERIFY_OPTIONAL );
 
     mbedtls_ssl_conf_rng( &ctx->conf, mbedtls_ctr_drbg_random, &ctx->ctr_drbg );
 #if defined(MBEDTLS_DEBUG_C)

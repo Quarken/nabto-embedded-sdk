@@ -92,7 +92,7 @@ np_error_code nc_attacher_init(struct nc_attach_context* ctx, struct np_platform
     ctx->listenerData = listenerData;
     ctx->retryWaitTime = RETRY_WAIT_TIME;
     ctx->accessDeniedWaitTime = ACCESS_DENIED_WAIT_TIME;
-    ctx->verifyCertificates = true;
+    ctx->verifyCertificates = false;
 
     struct np_event_queue* eq = &pl->eq;
 
@@ -183,6 +183,11 @@ np_error_code nc_attacher_set_root_cert(struct nc_attach_context* ctx, const uns
         return NABTO_EC_INVALID_STATE;
     }
     return ctx->pl->dtlsC.set_root_cert(ctx->dtls, rootCertL, rootCertSize);
+}
+
+void nc_attacher_enable_certificate_verification(struct nc_attach_context* ctx)
+{
+    ctx->verifyCertificates = true;
 }
 
 np_error_code nc_attacher_set_app_info(struct nc_attach_context* ctx, const char* appName, const char* appVersion)

@@ -17,6 +17,7 @@
 #include <platform/np_error_code.h>
 #include <core/nc_version.h>
 #include <core/nc_client_connection.h>
+#include <core/nc_attacher.h>
 
 #include <modules/mbedtls/nm_mbedtls_util.h>
 #include <modules/mbedtls/nm_mbedtls_cli.h>
@@ -250,6 +251,30 @@ NabtoDeviceError NABTO_DEVICE_API nabto_device_set_private_key(NabtoDevice* devi
     nabto_device_threads_mutex_unlock(dev->eventMutex);
     return nabto_device_error_core_to_api(ec);
 
+}
+
+NabtoDeviceError NABTO_DEVICE_API
+nabto_device_set_root_certs(NabtoDevice* device, const char* rootCerts)
+{
+    struct nabto_device_context* dev = (struct nabto_device_context*)device;
+    np_error_code ec = NABTO_DEVICE_EC_OK;
+    nabto_device_threads_mutex_lock(dev->eventMutex);
+
+    ec = nc_attacher_set_root_cert(&dev->core.attacher, (uint8_t*)rootCerts, strlen(rootCerts));
+
+    nabto_device_threads_mutex_unlock(dev->eventMutex);
+    return nabto_device_error_core_to_api(ec);
+}
+
+NabtoDeviceError NABTO_DEVICE_API
+nabto_device_enable_server_validation(NabtoDevice* device)
+{
+    struct nabto_device_context* dev = (struct nabto_device_context*)device;
+    np_error_code ec = NABTO_DEVICE_EC_OK;
+    nabto_device_threads_mutex_lock(dev->eventMutex);
+    nc_attacher_enable_certificate_verification(&dev->core.attacher);
+    nabto_device_threads_mutex_unlock(dev->eventMutex);
+    return nabto_device_error_core_to_api(ec);
 }
 
 NabtoDeviceError NABTO_DEVICE_API nabto_device_set_app_name(NabtoDevice* device, const char* name)

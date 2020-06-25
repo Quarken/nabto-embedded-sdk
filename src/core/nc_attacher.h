@@ -182,6 +182,7 @@ np_error_code nc_attacher_set_keys(struct nc_attach_context* ctx,
 np_error_code nc_attacher_set_root_cert(struct nc_attach_context* ctx,
                                         const unsigned char* rootCert, size_t rootCertSize);
 
+void nc_attacher_enable_certificate_verification(struct nc_attach_context* ctx);
 
 // set app info before start
 np_error_code nc_attacher_set_app_info(struct nc_attach_context* ctx,
