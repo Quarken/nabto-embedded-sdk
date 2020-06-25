@@ -16,7 +16,7 @@ const char encodedOcspBasicResponseOid[] = { 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07,
                                              0x01, 0x01 };
 
 struct ocsp_response {
-    int certStatus;
+    enum certificate_ocsp_status certStatus;
     mbedtls_x509_time producedAt;
     mbedtls_x509_time thisUpdate;
     mbedtls_x509_time nextUpdate;
@@ -122,13 +122,13 @@ static int parse_ocsp_response(uint8_t* responseData, size_t responseDataSize, u
     // read cert status
     if (mbedtls_asn1_get_tag(&ptr, tmpEnd, &len, 0x80) == 0) {
         // good
-        out->certStatus = 0;
+        out->certStatus = OCSP_STATUS_OK;
     } else if (mbedtls_asn1_get_tag(&ptr, tmpEnd, &len, 0x81) == 0) {
         // revoked
-        out->certStatus = 1;
+        out->certStatus = OCSP_STATUS_REVOKED;
     } else if (mbedtls_asn1_get_tag(&ptr, tmpEnd, &len, 0x82) == 0) {
         // unknown
-        out->certStatus = 2;
+        out->certStatus = OCSP_STATUS_UNKNOWN;
     } else {
         return -1;
     }
@@ -168,7 +168,7 @@ static int validate_ocsp_response_signature(uint8_t* data, size_t dataSize, uint
     return status;
 }
 
-int validate_ocsp_response(uint8_t* response, size_t responseSize, mbedtls_x509_crt* child, mbedtls_x509_crt* parent)
+int validate_ocsp_response(uint8_t* response, size_t responseSize, mbedtls_x509_crt* child, mbedtls_x509_crt* parent, enum certificate_ocsp_status* status)
 {
     uint8_t* ptr = response;
     uint8_t* end = response + responseSize;
@@ -294,12 +294,14 @@ int validate_ocsp_response(uint8_t* response, size_t responseSize, mbedtls_x509_
     }
 
     struct ocsp_response parsed;
-    if (!parse_ocsp_response(tbsDataStart, tbsDataSize, child->serial.p, child->serial.len, &parsed)) {
-        return -1;
+    ret = parse_ocsp_response(tbsDataStart, tbsDataSize, child->serial.p, child->serial.len, &parsed);
+    if (ret != 0) {
+        return ret;
     }
 
-    if (!validate_ocsp_response_signature(tbsDataStart, tbsDataSize, bitstring.p, bitstring.len, md_alg, pk_alg, signingCertificate)) {
-        return -1;
+    ret = validate_ocsp_response_signature(tbsDataStart, tbsDataSize, bitstring.p, bitstring.len, md_alg, pk_alg, signingCertificate);
+    if (ret != 0) {
+        return ret;
     }
 
     // 1. The certificate identified in a received response corresponds to
@@ -332,5 +334,6 @@ int validate_ocsp_response(uint8_t* response, size_t responseSize, mbedtls_x509_
         return -1;
     }
 
+    *status = parsed.certStatus;
     return 0;
 }

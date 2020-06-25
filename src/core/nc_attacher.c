@@ -554,6 +554,7 @@ void coap_ocsp_chain_callback(void* data)
     np_error_code ec = pl->dtlsC.is_certificates_ok(ctx->dtls);
 
     if (ec != NABTO_EC_OK) {
+        NABTO_LOG_ERROR(LOG, "Could not attach. %s", np_error_code_to_string(ec));
         coap_attach_failed(ctx);
         return;
     }

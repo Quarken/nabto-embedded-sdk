@@ -31,12 +31,6 @@
 
 const int allowedCipherSuitesList[] = { MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM, 0 };
 
-enum certificate_ocsp_status {
-    OCSP_STATUS_OK = 0,
-    OCSP_STATUS_REVOKED = 1,
-    OCSP_STATUS_UNKNOWN = 2
-};
-
 struct cert_chain_element {
     mbedtls_x509_crt* crt;
     enum certificate_ocsp_status status; // 0 == ok
@@ -459,7 +453,7 @@ np_error_code validate_ocsp(struct np_dtls_cli_context* ctx, int level, uint8_t*
     struct mbedtls_x509_crt* child = ctx->certificateChain[level].crt;
     struct mbedtls_x509_crt* parent = ctx->certificateChain[level+1].crt;
 
-    int ret = validate_ocsp_response(ocspResponse, ocspResponseSize, child, parent);
+    int ret = validate_ocsp_response(ocspResponse, ocspResponseSize, child, parent, &ctx->certificateChain[level].status);
     if (ret != 0) {
         return NABTO_EC_INVALID_STATE;
     }

@@ -34,6 +34,11 @@ class AttachCoapServer {
         }
 
         ec = dtlsServer_.init();
+
+        dtlsServer_.addResourceHandler(NABTO_COAP_CODE_GET, "/ocsp/chain", [this](DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response) {
+                handleOcspChainRequest(connection, request, response);
+            });
+
         initCoapHandlers();
         return true;
     }
@@ -60,6 +65,18 @@ class AttachCoapServer {
         std::array<uint8_t, 16> ret;
         memcpy(ret.data(), fp->data(), 16);
         return ret;
+    }
+
+    void handleOcspChainRequest(DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)
+    {
+        nlohmann::json root = nlohmann::json::array();
+        root.push_back(nlohmann::json::binary(localhostNabtoNetOcspResponse));
+        root.push_back(nlohmann::json::binary(intermediateOcspResponse));
+
+        std::vector<uint8_t> cbor = nlohmann::json::to_cbor(root);
+        response->setContentFormat(NABTO_COAP_CONTENT_FORMAT_APPLICATION_CBOR);
+        response->setPayload(cbor);
+        response->setCode(205);
     }
  protected:
     boost::asio::io_context& io_;
@@ -100,22 +117,9 @@ class AttachServer : public AttachCoapServer, public std::enable_shared_from_thi
                 //self->attachCount_ += 1;
                 return;
             });
-        dtlsServer_.addResourceHandler(NABTO_COAP_CODE_GET, "/ocsp/chain", [self](DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response) {
-                self->handleOcspChainRequest(connection, request, response);
-            });
     }
 
-    void handleOcspChainRequest(DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)
-    {
-        nlohmann::json root = nlohmann::json::array();
-        root.push_back(localhostNabtoNetOcspResponse);
-        root.push_back(intermediateOcspResponse);
 
-        std::vector<uint8_t> cbor = nlohmann::json::to_cbor(root);
-        response->setContentFormat(NABTO_COAP_CONTENT_FORMAT_APPLICATION_CBOR);
-        response->setPayload(cbor);
-        response->setCode(205);
-    }
 
     void handleDeviceAttach(DtlsConnectionPtr connection,  std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)
     {
