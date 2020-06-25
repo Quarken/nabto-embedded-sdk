@@ -50,6 +50,7 @@ class AttachTest {
                              reinterpret_cast<const unsigned char*>(nabto::test::devicePublicKey.c_str()), nabto::test::devicePublicKey.size(),
                              reinterpret_cast<const unsigned char*>(nabto::test::devicePrivateKey.c_str()), nabto::test::devicePrivateKey.size());
         nc_attacher_set_root_cert(&attach_, reinterpret_cast<const unsigned char*>(nabto::test::caRootCert.c_str()), nabto::test::caRootCert.size());
+        nc_attacher_enable_certificate_verification(&attach_);
         nc_attacher_set_app_info(&attach_, appName_, appVersion_);
         nc_attacher_set_device_info(&attach_, productId_, deviceId_);
         // set timeout to approximately one seconds for the dtls handshake

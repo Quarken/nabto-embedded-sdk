@@ -683,6 +683,8 @@ void coap_attach_end_handler(np_error_code ec, void* data)
         ctx->listener(NC_DEVICE_EVENT_ATTACHED, ctx->listenerData);
     }
 
+    NABTO_LOG_INFO(LOG, "The device is attached to the basestation");
+
     // if we have added scts in the meantime
     send_sct_request(ctx);
 }
