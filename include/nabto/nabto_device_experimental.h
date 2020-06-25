@@ -56,6 +56,26 @@ NABTO_DEVICE_DECL_PREFIX bool NABTO_DEVICE_API
 nabto_device_connection_is_local(NabtoDevice* device,
                                  NabtoDeviceConnectionRef ref);
 
+
+/**
+ * Set the root certificates which the device trusts, should be called before calling nabto_device_start().
+ *
+ * @param device [in]   The device instance to perform action on
+ * @param rootCerts [in]  The trusted root certs PEM encoded. With headers and footers.
+ * @return NABTO_DEVICE_EC_OK on success
+ */
+NABTO_DEVICE_DECL_PREFIX NabtoDeviceError NABTO_DEVICE_API
+nabto_device_set_root_certs(NabtoDevice* device, const char* rootCerts);
+
+/**
+ * Enable validation of the basestation certificates
+ *
+ * @param device [in]  The device instance to perform the action on.
+ * @return NABTO_DEVICE_EC_OK on success.
+ */
+NABTO_DEVICE_DECL_PREFIX NabtoDeviceError NABTO_DEVICE_API
+nabto_device_enable_server_validation(NabtoDevice* device);
+
 #ifdef __cplusplus
 } // extern c
 #endif

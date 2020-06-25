@@ -24,7 +24,7 @@ static enum nc_attacher_status coap_attach_start_handle_response(struct nabto_co
 static enum nc_attacher_status handle_attached(struct nc_attach_context* ctx, CborValue* root);
 static enum nc_attacher_status handle_redirect(struct nc_attach_context* ctx, CborValue* root);
 
-np_error_code nc_attacher_attach_start_request(struct nc_attach_context* ctx, nc_attacher_attach_start_callback startCallback, void* userData)
+np_error_code nc_attacher_attach_start_request(struct nc_attach_context* ctx, nc_attacher_attach_start_callback startCallback)
 {
     if (ctx->startCallback != NULL) {
         return NABTO_EC_OPERATION_IN_PROGRESS;
@@ -68,7 +68,6 @@ np_error_code nc_attacher_attach_start_request(struct nc_attach_context* ctx, nc
         nabto_coap_client_request_free(req);
     } else {
         ctx->startCallback = startCallback;
-        ctx->startCallbackUserData = userData;
         nabto_coap_client_request_send(req);
     }
     free(buffer);
@@ -236,14 +235,12 @@ void coap_attach_start_handler(struct nabto_coap_client_request* request, void* 
 {
     struct nc_attach_context* ctx = (struct nc_attach_context*)data;
     nc_attacher_attach_start_callback cb = ctx->startCallback;
-    void* userData = ctx->startCallbackUserData;
 
     enum nc_attacher_status result = coap_attach_start_handle_response(request, ctx);
 
     nabto_coap_client_request_free(request);
     ctx->startCallback = NULL;
-    ctx->startCallbackUserData = NULL;
-    cb(result, userData);
+    cb(result, ctx);
 }
 
 size_t encode_cbor_request(CborEncoder* encoder, struct nc_attach_context* ctx)

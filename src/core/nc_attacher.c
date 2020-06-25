@@ -73,6 +73,7 @@ void send_sct_request_callback(np_error_code ec, void* userData);
 static void sct_init(struct nc_attach_context* ctx);
 static void sct_deinit(struct nc_attach_context* ctx);
 
+void verify_ocsp(struct nc_attach_context* ctx);
 
 /*****************
  * API functions *
@@ -91,6 +92,7 @@ np_error_code nc_attacher_init(struct nc_attach_context* ctx, struct np_platform
     ctx->listenerData = listenerData;
     ctx->retryWaitTime = RETRY_WAIT_TIME;
     ctx->accessDeniedWaitTime = ACCESS_DENIED_WAIT_TIME;
+    ctx->verifyCertificates = true;
 
     struct np_event_queue* eq = &pl->eq;
 
@@ -512,7 +514,11 @@ void handle_dtls_connected(struct nc_attach_context* ctx)
         ctx->pl->dtlsC.close(ctx->dtls);
         return;
     }
-    send_attach_start_request(ctx);
+    if (ctx->verifyCertificates) {
+        verify_ocsp(ctx);
+    } else {
+        send_attach_start_request(ctx);
+    }
 }
 
 void handle_dtls_access_denied(struct nc_attach_context* ctx)
@@ -531,9 +537,39 @@ void handle_dtls_access_denied(struct nc_attach_context* ctx)
     handle_state_change(ctx);
 }
 
+
+void coap_ocsp_chain_callback(void* data)
+{
+    struct nc_attach_context* ctx = data;
+
+    if (ctx->moduleState == NC_ATTACHER_MODULE_CLOSED) {
+        coap_attach_failed(ctx);
+        return;
+    }
+
+    // check that the dtls client means that the certificate is validated
+
+    struct np_platform* pl = ctx->pl;
+
+    np_error_code ec = pl->dtlsC.is_certificates_ok(ctx->dtls);
+
+    if (ec != NABTO_EC_OK) {
+        coap_attach_failed(ctx);
+        return;
+    }
+
+    // start the attach
+    send_attach_start_request(ctx);
+}
+
+void verify_ocsp(struct nc_attach_context* ctx)
+{
+    nc_attacher_ocsp_chain_request(ctx, &coap_ocsp_chain_callback);
+}
+
 void send_attach_start_request(struct nc_attach_context* ctx)
 {
-    np_error_code ec = nc_attacher_attach_start_request(ctx, &coap_attach_start_callback, ctx);
+    np_error_code ec = nc_attacher_attach_start_request(ctx, &coap_attach_start_callback);
     if (ec != NABTO_EC_OPERATION_STARTED) {
         coap_attach_failed(ctx);
     }
@@ -612,7 +648,7 @@ void send_sct_request_callback(np_error_code ec, void* userData)
 
 void send_attach_end_request(struct nc_attach_context* ctx)
 {
-    np_error_code ec = nc_attacher_attach_end_request(ctx, coap_attach_end_handler, ctx);
+    np_error_code ec = nc_attacher_attach_end_request(ctx, coap_attach_end_handler);
     if (ec != NABTO_EC_OPERATION_STARTED) {
         coap_attach_failed(ctx);
     }

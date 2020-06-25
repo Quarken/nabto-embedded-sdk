@@ -57,6 +57,8 @@ typedef void (*nc_attacher_attach_end_callback)(np_error_code ec, void* userData
 
 typedef void (*nc_attacher_sct_callback)(np_error_code ec, void* userData);
 
+typedef void (*nc_attacher_ocsp_chain_callback)(void* userData);
+
 struct nc_attacher_sct_context {
     struct nn_string_set scts;
     uint64_t version;
@@ -125,12 +127,15 @@ struct nc_attach_context {
     struct np_event* reattachTimer;
     struct np_event* closeEv;
 
+    // callback to call when the /device/attach-start resolves
     nc_attacher_attach_start_callback startCallback;
-    void* startCallbackUserData;
 
+    // callback to call when the /device/attach-end resolves
     nc_attacher_attach_end_callback endCallback;
-    void* endCallbackUserData;
 
+    // callback to call when /ocsp/chain has been handled
+    nc_attacher_ocsp_chain_callback ocspChainCallback;
+    size_t ocspChainCurrent;
 
     struct nabto_coap_client_request* request;
 
@@ -154,6 +159,8 @@ struct nc_attach_context {
     uint32_t accessDeniedWaitTime;
 
     struct nc_attacher_sct_context sctContext;
+
+    bool verifyCertificates;
 };
 
 // Init attacher module, always first function to be called
@@ -211,12 +218,17 @@ np_error_code nc_attacher_sct_upload(struct nc_attach_context* attacher, nc_atta
 /**
  * @return NABTO_EC_OPERATION_STARTED if the attach start request is started.
  */
-np_error_code nc_attacher_attach_start_request(struct nc_attach_context* attacher, nc_attacher_attach_start_callback cb, void* userData);
+np_error_code nc_attacher_attach_start_request(struct nc_attach_context* attacher, nc_attacher_attach_start_callback cb);
 
 /**
  * @return NABTO_EC_OPERATION_STARTED if the attach end request is started.
  */
-np_error_code nc_attacher_attach_end_request(struct nc_attach_context* attacher, nc_attacher_attach_end_callback cb, void* userData);
+np_error_code nc_attacher_attach_end_request(struct nc_attach_context* attacher, nc_attacher_attach_end_callback cb);
+
+/**
+ * @return NABTO_EC_OPERATION_STARTED if the attach end request is started.
+ */
+np_error_code nc_attacher_ocsp_chain_request(struct nc_attach_context* attacher, nc_attacher_ocsp_chain_callback cb);
 
 void nc_attacher_handle_dtls_packet(struct nc_attach_context* ctx, struct np_udp_endpoint* ep, uint8_t* buffer, size_t bufferSize);
 

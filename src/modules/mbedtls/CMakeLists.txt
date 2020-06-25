@@ -8,6 +8,7 @@ set(dtls_common_src
 set(dtls_cli_src
   ${dtls_common_src}
   nm_mbedtls_cli.c
+  nm_mbedtls_ocsp.c
   )
 
 set(dtls_srv_src

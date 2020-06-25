@@ -2,9 +2,7 @@
 
 #include <fixtures/dtls_server/dtls_server.hpp>
 #include <boost/asio/io_service.hpp>
-//#include <util/test_future.hpp>
 #include <fixtures/dtls_server/mbedtls_util.hpp>
-#
 
 #include <nlohmann/json.hpp>
 
@@ -102,6 +100,21 @@ class AttachServer : public AttachCoapServer, public std::enable_shared_from_thi
                 //self->attachCount_ += 1;
                 return;
             });
+        dtlsServer_.addResourceHandler(NABTO_COAP_CODE_GET, "/ocsp/chain", [self](DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response) {
+                self->handleOcspChainRequest(connection, request, response);
+            });
+    }
+
+    void handleOcspChainRequest(DtlsConnectionPtr connection, std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)
+    {
+        nlohmann::json root = nlohmann::json::array();
+        root.push_back(localhostNabtoNetOcspResponse);
+        root.push_back(intermediateOcspResponse);
+
+        std::vector<uint8_t> cbor = nlohmann::json::to_cbor(root);
+        response->setContentFormat(NABTO_COAP_CONTENT_FORMAT_APPLICATION_CBOR);
+        response->setPayload(cbor);
+        response->setCode(205);
     }
 
     void handleDeviceAttach(DtlsConnectionPtr connection,  std::shared_ptr<CoapServerRequest> request, std::shared_ptr<CoapServerResponse> response)

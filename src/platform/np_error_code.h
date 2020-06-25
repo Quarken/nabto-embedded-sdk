@@ -47,6 +47,8 @@ extern "C" {
         XX(OPERATION_STARTED, "Operation started")                      \
         XX(NO_OPERATION, "No operation neccessary")                     \
         XX(AGAIN, "No data available try again later")                  \
+        XX(CERTIFICATE_VERIFICATION_FAILED, "Failed to verify the certificate") \
+        XX(CERTIFICATE_REVOKED, "The certificate has been revoked")     \
 
 
 #define XX_ERROR(name, _) NABTO_EC_##name,

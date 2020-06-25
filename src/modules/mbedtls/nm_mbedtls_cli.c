@@ -1,9 +1,11 @@
 #include "nm_mbedtls_cli.h"
 #include "nm_mbedtls_util.h"
 #include "nm_mbedtls_timer.h"
+#include "nm_mbedtls_ocsp.h"
 
 #include <platform/np_logging.h>
 #include <platform/np_event_queue_wrapper.h>
+#include <platform/np_util.h>
 
 #include <core/nc_version.h>
 #include <core/nc_udp_dispatch.h>
@@ -16,6 +18,7 @@
 #include <mbedtls/certs.h>
 #include <mbedtls/timing.h>
 #include <mbedtls/ssl_ciphersuites.h>
+#include <mbedtls/x509.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -24,9 +27,20 @@
 #include <nn/llist.h>
 
 #define LOG NABTO_LOG_MODULE_DTLS_CLI
-#define DEBUG_LEVEL 4
+#define DEBUG_LEVEL 0
 
 const int allowedCipherSuitesList[] = { MBEDTLS_TLS_ECDHE_ECDSA_WITH_AES_128_CCM, 0 };
+
+enum certificate_ocsp_status {
+    OCSP_STATUS_OK = 0,
+    OCSP_STATUS_REVOKED = 1,
+    OCSP_STATUS_UNKNOWN = 2
+};
+
+struct cert_chain_element {
+    mbedtls_x509_crt* crt;
+    enum certificate_ocsp_status status; // 0 == ok
+};
 
 struct np_dtls_cli_context {
     struct np_platform* pl;
@@ -61,6 +75,10 @@ struct np_dtls_cli_context {
     mbedtls_x509_crt rootCert;
     mbedtls_pk_context privateKey;
     mbedtls_ssl_context ssl;
+
+    struct cert_chain_element certificateChain[MBEDTLS_X509_MAX_VERIFY_CHAIN_SIZE];
+    size_t certificateChainSize;
+
 };
 
 const char* nm_mbedtls_cli_alpnList[] = {NABTO_PROTOCOL_VERSION , NULL};
@@ -84,6 +102,9 @@ static np_error_code async_send_data(struct np_dtls_cli_context* ctx,
 static np_error_code dtls_cli_close(struct np_dtls_cli_context* ctx);
 
 static np_error_code get_fingerprint(struct np_dtls_cli_context* ctx, uint8_t* fp);
+
+static np_error_code validate_ocsp(struct np_dtls_cli_context* ctx, int level, uint8_t* ocspResponse, size_t ocspResponseSize);
+static np_error_code is_certificates_ok(struct np_dtls_cli_context* ctx);
 
 static np_error_code set_handshake_timeout(struct np_dtls_cli_context* ctx, uint32_t minTimeout, uint32_t maxTimeout);
 
@@ -113,6 +134,8 @@ void nm_dtls_do_close(void* data, np_error_code ec);
 np_error_code nm_dtls_setup_dtls_ctx(struct np_dtls_cli_context* ctx);
 
 void nm_mbedtls_cli_do_free(struct np_dtls_cli_context* ctx);
+
+np_error_code check_ocsp_for_chain(struct np_dtls_cli_context* ctx);
 
 // Get the packet counters for given dtls_cli_context
 np_error_code nm_dtls_get_packet_count(struct np_dtls_cli_context* ctx, uint32_t* recvCount, uint32_t* sentCount)
@@ -166,6 +189,8 @@ np_error_code nm_mbedtls_cli_init(struct np_platform* pl)
     pl->dtlsC.async_send_data = &async_send_data;
     pl->dtlsC.close = &dtls_cli_close;
     pl->dtlsC.get_fingerprint = &get_fingerprint;
+    pl->dtlsC.handle_ocsp_response = &validate_ocsp;
+    pl->dtlsC.is_certificates_ok = &is_certificates_ok;
     pl->dtlsC.set_handshake_timeout = &set_handshake_timeout;
     pl->dtlsC.get_alpn_protocol = &nm_dtls_get_alpn_protocol;
     pl->dtlsC.get_packet_count = &nm_dtls_get_packet_count;
@@ -224,8 +249,24 @@ np_error_code nm_mbedtls_cli_create(struct np_platform* pl, struct np_dtls_cli_c
         return ec;
     }
 
+    size_t i = 0;
+    for (i = 0; i < MBEDTLS_X509_MAX_VERIFY_CHAIN_SIZE; i++) {
+        ctx->certificateChain[i].crt = NULL;
+        ctx->certificateChain[i].status = OCSP_STATUS_UNKNOWN;
+    }
+
     *client = ctx;
     return NABTO_EC_OK;
+}
+
+int verify_callback(void* userData, mbedtls_x509_crt* crt, int level, uint32_t* flags)
+{
+    struct np_dtls_cli_context* ctx = userData;
+    ctx->certificateChain[level].crt = crt;
+    ctx->certificateChain[level].status = OCSP_STATUS_UNKNOWN;
+    // assuming the callback is called from the leaf to the root.
+    ctx->certificateChainSize = NP_MAX(level+1, ctx->certificateChainSize);
+    return 0;
 }
 
 np_error_code dtls_cli_init_connection(struct np_dtls_cli_context* ctx)
@@ -270,7 +311,6 @@ np_error_code dtls_cli_init_connection(struct np_dtls_cli_context* ctx)
     mbedtls_ssl_conf_dbg( &ctx->conf, my_debug, stdout );
 #endif
 
-
 #if defined(MBEDTLS_DEBUG_C)
     mbedtls_ssl_conf_dbg( &ctx->conf, my_debug, stdout );
 #endif
@@ -282,6 +322,9 @@ np_error_code dtls_cli_init_connection(struct np_dtls_cli_context* ctx)
                               &ctx->timer,
                               &nm_mbedtls_timer_set_delay,
                               &nm_mbedtls_timer_get_delay );
+
+    mbedtls_ssl_conf_verify(&ctx->conf, verify_callback, ctx);
+
     return NABTO_EC_OK;
 }
 
@@ -405,6 +448,59 @@ np_error_code get_fingerprint(struct np_dtls_cli_context* ctx, uint8_t* fp)
         return NABTO_EC_UNKNOWN;
     }
     return nm_dtls_util_fp_from_crt(crt, fp);
+}
+
+np_error_code validate_ocsp(struct np_dtls_cli_context* ctx, int level, uint8_t* ocspResponse, size_t ocspResponseSize)
+{
+    // level 0 == leaf.
+    if (ctx->certificateChainSize < level+1) {
+        return NABTO_EC_OK;
+    }
+    struct mbedtls_x509_crt* child = ctx->certificateChain[level].crt;
+    struct mbedtls_x509_crt* parent = ctx->certificateChain[level+1].crt;
+
+    int ret = validate_ocsp_response(ocspResponse, ocspResponseSize, child, parent);
+    if (ret != 0) {
+        return NABTO_EC_INVALID_STATE;
+    }
+
+    return NABTO_EC_OK;
+}
+
+np_error_code is_certificates_ok(struct np_dtls_cli_context* ctx)
+{
+    if(ctx->state != DATA) {
+        return NABTO_EC_INVALID_STATE;
+    }
+    uint32_t verificationStatus = mbedtls_ssl_get_verify_result(&ctx->ssl);
+    if (verificationStatus != 0) {
+        return NABTO_EC_CERTIFICATE_VERIFICATION_FAILED;
+    }
+
+    return check_ocsp_for_chain(ctx);
+
+}
+
+// This is called after validate_ocsp has been called for each
+// certificate in the chain
+np_error_code check_ocsp_for_chain(struct np_dtls_cli_context* ctx)
+{
+    if (ctx->certificateChainSize < 1) {
+        return NABTO_EC_INVALID_STATE;
+    }
+
+    // The root certificate is implicit ok.
+    for (size_t i = 0; i < ctx->certificateChainSize-1; i++)
+    {
+        if (ctx->certificateChain->status != OCSP_STATUS_OK) {
+            if (ctx->certificateChain->status == OCSP_STATUS_REVOKED) {
+                return NABTO_EC_CERTIFICATE_REVOKED;
+            } else {
+                return NABTO_EC_CERTIFICATE_VERIFICATION_FAILED;
+            }
+        }
+    }
+    return NABTO_EC_OK;
 }
 
 np_error_code set_handshake_timeout(struct np_dtls_cli_context* ctx, uint32_t minTimeout, uint32_t maxTimeout)

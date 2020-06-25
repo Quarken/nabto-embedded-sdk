@@ -6,7 +6,7 @@ const char* attachEndPath[] = {"device", "attach-end"};
 
 static void coap_attach_end_handler(struct nabto_coap_client_request* request, void* data);
 
-np_error_code nc_attacher_attach_end_request(struct nc_attach_context* ctx, nc_attacher_attach_end_callback endCallback, void* userData)
+np_error_code nc_attacher_attach_end_request(struct nc_attach_context* ctx, nc_attacher_attach_end_callback endCallback)
 {
     if (ctx->endCallback != NULL) {
         return NABTO_EC_OPERATION_IN_PROGRESS;
@@ -23,7 +23,6 @@ np_error_code nc_attacher_attach_end_request(struct nc_attach_context* ctx, nc_a
     }
 
     ctx->endCallback = endCallback;
-    ctx->endCallbackUserData = userData;
 
     nabto_coap_client_request_send(req);
     return NABTO_EC_OPERATION_STARTED;
@@ -33,7 +32,6 @@ void coap_attach_end_handler(struct nabto_coap_client_request* request, void* da
 {
     struct nc_attach_context* ctx = (struct nc_attach_context*)data;
     nc_attacher_attach_end_callback cb = ctx->endCallback;
-    void* userData = ctx->endCallbackUserData;
     np_error_code status = NABTO_EC_OK;
 
     struct nabto_coap_client_response* res = nabto_coap_client_request_get_response(request);
@@ -48,6 +46,5 @@ void coap_attach_end_handler(struct nabto_coap_client_request* request, void* da
 
     nabto_coap_client_request_free(request);
     ctx->endCallback = NULL;
-    ctx->endCallbackUserData = NULL;
-    cb(status, userData);
+    cb(status, ctx);
 }

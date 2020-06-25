@@ -47,6 +47,11 @@ struct np_dtls_cli_send_context {
     struct nn_llist_node sendListNode;
 };
 
+struct np_dtls_cli_ocsp_response {
+    uint8_t* data;
+    size_t dataSize;
+};
+
 struct np_dtls_cli_module {
 
     np_error_code (*create)(struct np_platform* pl, struct np_dtls_cli_context** client,
@@ -69,7 +74,20 @@ struct np_dtls_cli_module {
                                    uint8_t* buffer, uint16_t bufferSize);
 
     np_error_code (*close)(struct np_dtls_cli_context* ctx);
+
+    /**
+     * Get the fingerprint of the other peer.
+     */
     np_error_code (*get_fingerprint)(struct np_dtls_cli_context* ctx, uint8_t* fp);
+
+    /**
+     * Validate ocsp responses for the chain.
+     *
+     * The list contains struct np_dtls_cli_ocsp_response elements.
+     */
+    np_error_code (*handle_ocsp_response)(struct np_dtls_cli_context* ctx, int level, uint8_t* ocspResponse, size_t ocspResponseSize);
+
+    np_error_code (*is_certificates_ok)(struct np_dtls_cli_context* ctx);
 
     // The retransmission in the dtls handshake uses exponential backoff,
     // If minTimeout is 1000ms and maxTimeout is 5000ms the dtls implementation will

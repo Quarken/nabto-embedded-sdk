@@ -75,6 +75,7 @@ set(ne_core_src
   ${root_dir}/src/core/nc_stream_manager.c
   ${root_dir}/src/core/nc_coap_client.c
   ${root_dir}/src/core/nc_attacher_attach_end.c
+  ${root_dir}/src/core/nc_attacher_ocsp_chain.c
   ${root_dir}/src/core/nc_dns_multi_resolver.c
   ${root_dir}/src/core/nc_device.c
 )

@@ -90,6 +90,7 @@
 #define MBEDTLS_DEBUG_C
 #define MBEDTLS_ERROR_C
 #define MBEDTLS_SSL_DTLS_ANTI_REPLAY
+#define MBEDTLS_X509_CHECK_EXTENDED_KEY_USAGE
 
 /* For test certificates */
 #define MBEDTLS_BASE64_C
