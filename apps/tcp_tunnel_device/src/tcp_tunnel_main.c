@@ -6,6 +6,7 @@
 
 
 #include <nabto/nabto_device.h>
+#include <nabto/nabto_device_experimental.h>
 #include <apps/common/device_config.h>
 #include <apps/common/private_key.h>
 #include <apps/common/logging.h>
@@ -44,6 +45,20 @@
 #endif
 
 #define HOMEDIR_EDGE_FOLDER HOMEDIR_NABTO_FOLDER "/edge"
+
+const char* rootCert =
+    "-----BEGIN CERTIFICATE-----\n"
+"MIIBvDCCAWKgAwIBAgIUG+Bt71g3QqS36/jNxVcmQLzoZkwwCgYIKoZIzj0EAwIw\n"
+"PDELMAkGA1UEBhMCREsxDjAMBgNVBAoMBU5hYnRvMR0wGwYDVQQDDBROYWJ0byBU\n"
+"ZXN0IFJvb3QgQ0EgMTAeFw0yMDA2MjIwOTA4MzhaFw00OTEyMzEyMzU5NTlaMDwx\n"
+"CzAJBgNVBAYTAkRLMQ4wDAYDVQQKDAVOYWJ0bzEdMBsGA1UEAwwUTmFidG8gVGVz\n"
+"dCBSb290IENBIDEwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASxCXWqC54B+HCe\n"
+"FkdxlfHhtqXpvc6P0A8km3ii1savQJmrbdgnu263AQxuf9rSvC3pO6UC81zNIFli\n"
+"cdkErvnpo0IwQDAdBgNVHQ4EFgQUb+ZkJRza1S+PoNk7C7GSoM1zCokwDwYDVR0T\n"
+"AQH/BAUwAwEB/zAOBgNVHQ8BAf8EBAMCAYYwCgYIKoZIzj0EAwIDSAAwRQIgG2tw\n"
+"se2/BxmDOs20B120QoGerlYgmfQlGnQtEdeyPsACIQC19A9QR/l/pO9ftOYWrrHL\n"
+"mdCg5Sam+dxRWc3+vGMCSA==\n"
+    "-----END CERTIFICATE-----";
 
 const char* DEVICE_CONFIG_FILE = "config/device.json";
 const char* TCP_TUNNEL_STATE_FILE = "state/tcp_tunnel_state.json";
@@ -388,6 +403,9 @@ bool handle_main(struct args* args, struct tcp_tunnel* tunnel)
     nabto_device_set_product_id(device, dc.productId);
     nabto_device_set_device_id(device, dc.deviceId);
     nabto_device_set_server_url(device, dc.server);
+
+    nabto_device_set_root_certs(device, rootCert);
+    nabto_device_enable_server_validation(device);
     nabto_device_enable_mdns(device);
 
 
